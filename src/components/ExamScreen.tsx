@@ -4,21 +4,16 @@ import {
   AlertCircle, 
   ChevronLeft, 
   ChevronRight, 
-  Bookmark, 
-  RotateCcw, 
   Send, 
   BookOpen, 
   Calculator, 
-  BrainCircuit, 
-  Info,
   CheckCircle2,
-  HelpCircle,
-  Eye,
-  Maximize2,
-  Lock
+  FileText
 } from 'lucide-react';
-import { Question, StudentProfile, TestSettings, ClientQuestion } from '../types/exam';
+import { StudentProfile, TestSettings, ClientQuestion } from '../types/exam';
 import { getClientQuestions } from '../data/questionsData';
+import { ScientificCalculator } from './ScientificCalculator';
+import { MathFormulasModal } from './MathFormulasModal';
 
 interface ExamScreenProps {
   student: StudentProfile;
@@ -28,42 +23,29 @@ interface ExamScreenProps {
 
 export const ExamScreen: React.FC<ExamScreenProps> = ({
   student,
-  settings,
   onSubmitExam,
 }) => {
-  // Safe client questions without answers
   const clientQuestions: ClientQuestion[] = useMemo(() => getClientQuestions(), []);
 
-  // State tracking
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
-  const [markedForReview, setMarkedForReview] = useState<Record<number, boolean>>({});
-  const [visited, setVisited] = useState<Record<number, boolean>>({ 1: true });
+  
+  // Single 80-minute countdown timer (80 * 60 = 4800 seconds)
+  const totalExamDurationSeconds = 80 * 60;
+  const [timeLeft, setTimeLeft] = useState(totalExamDurationSeconds);
 
-  // Timers
-  const totalSeconds = settings.durationMinutes * 60;
-  const [overallTimeLeft, setOverallTimeLeft] = useState(totalSeconds);
-  const [questionTimeLeft, setQuestionTimeLeft] = useState(settings.perQuestionSeconds);
-
-  // Modals & UI states
+  // Modals
   const [showConfirmSubmit, setShowConfirmSubmit] = useState(false);
-  const [showSectionIntro, setShowSectionIntro] = useState<string | null>('PART I – ENGLISH');
-  const [activeSectionFilter, setActiveSectionFilter] = useState<'ALL' | 'ENGLISH' | 'MATHEMATICS' | 'INTELLIGENCE'>('ENGLISH');
+  const [showCalculator, setShowCalculator] = useState(false);
+  const [showFormulas, setShowFormulas] = useState(false);
 
   const currentQuestion = clientQuestions[currentIndex];
   const startTimeRef = useRef(Date.now());
 
-  // Record visited on question switch
-  useEffect(() => {
-    setVisited((prev) => ({ ...prev, [currentQuestion.id]: true }));
-    // Reset question timer to full per question duration
-    setQuestionTimeLeft(settings.perQuestionSeconds);
-  }, [currentIndex, currentQuestion.id, settings.perQuestionSeconds]);
-
-  // Overall countdown timer (100 minutes)
+  // Countdown timer for 80 minutes
   useEffect(() => {
     const timer = setInterval(() => {
-      setOverallTimeLeft((prev) => {
+      setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
           handleAutoSubmit();
@@ -76,61 +58,16 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
     return () => clearInterval(timer);
   }, []);
 
-  // Per-question countdown timer (60 seconds)
-  useEffect(() => {
-    if (!settings.enablePerQuestionTimer) return;
-
-    const qTimer = setInterval(() => {
-      setQuestionTimeLeft((prev) => {
-        if (prev <= 1) {
-          // Timer expired for this question: lock and auto-advance
-          handleQuestionTimerExpired();
-          return settings.perQuestionSeconds;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(qTimer);
-  }, [currentIndex, settings.enablePerQuestionTimer, settings.perQuestionSeconds]);
-
-  // When question timer hits 0
-  const handleQuestionTimerExpired = () => {
-    if (currentIndex < clientQuestions.length - 1) {
-      const nextIndex = currentIndex + 1;
-      checkSectionBoundary(nextIndex);
-      setCurrentIndex(nextIndex);
-    } else {
-      // Reached the end of the test
-      handleAutoSubmit();
-    }
-  };
-
-  // Check if moving to a new section to display formal section transition notification
-  const checkSectionBoundary = (newIndex: number) => {
-    const nextQ = clientQuestions[newIndex];
-    if (nextQ.section !== currentQuestion.section) {
-      if (nextQ.section === 'MATHEMATICS') {
-        setShowSectionIntro('PART II – MATHEMATICS');
-      } else if (nextQ.section === 'INTELLIGENCE') {
-        setShowSectionIntro('PART III – INTELLIGENCE / IQ');
-      }
-    }
-  };
-
-  // Auto-submit when time expires
   const handleAutoSubmit = () => {
-    const timeTaken = Math.min(totalSeconds, Math.floor((Date.now() - startTimeRef.current) / 1000));
+    const timeTaken = Math.min(totalExamDurationSeconds, Math.floor((Date.now() - startTimeRef.current) / 1000));
     onSubmitExam(answers, timeTaken);
   };
 
-  // Manual submission trigger
-  const handleFinalSubmitConfirm = () => {
+  const handleManualSubmit = () => {
     setShowConfirmSubmit(false);
     handleAutoSubmit();
   };
 
-  // Select Option
   const handleSelectOption = (option: 'A' | 'B' | 'C' | 'D') => {
     setAnswers((prev) => ({
       ...prev,
@@ -138,7 +75,6 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
     }));
   };
 
-  // Clear Option
   const handleClearAnswer = () => {
     setAnswers((prev) => {
       const copy = { ...prev };
@@ -147,20 +83,9 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
     });
   };
 
-  // Toggle Mark for Review
-  const handleToggleReview = () => {
-    setMarkedForReview((prev) => ({
-      ...prev,
-      [currentQuestion.id]: !prev[currentQuestion.id],
-    }));
-  };
-
-  // Navigation handlers
   const handleNext = () => {
     if (currentIndex < clientQuestions.length - 1) {
-      const nextIndex = currentIndex + 1;
-      checkSectionBoundary(nextIndex);
-      setCurrentIndex(nextIndex);
+      setCurrentIndex(currentIndex + 1);
     }
   };
 
@@ -170,237 +95,125 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
     }
   };
 
-  const handleJumpToQuestion = (targetIndex: number) => {
-    checkSectionBoundary(targetIndex);
-    setCurrentIndex(targetIndex);
-  };
-
-  // Helpers for timer display
+  // Format 80m countdown
   const formatTime = (secs: number) => {
-    const h = Math.floor(secs / 3600);
-    const m = Math.floor((secs % 3600) / 60);
+    const m = Math.floor(secs / 60);
     const s = secs % 60;
-    return `${h > 0 ? `${h.toString().padStart(2, '0')}:` : ''}${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  // Summary counts
   const answeredCount = Object.keys(answers).length;
-  const reviewCount = Object.values(markedForReview).filter(Boolean).length;
-  const unattemptedCount = clientQuestions.length - answeredCount;
-
-  // Section details
-  const getSectionTitle = (sec: Question['section']) => {
-    switch (sec) {
-      case 'ENGLISH':
-        return 'PART I – ENGLISH (Questions 1 – 40)';
-      case 'MATHEMATICS':
-        return 'PART II – MATHEMATICS (Questions 41 – 80)';
-      case 'INTELLIGENCE':
-        return 'PART III – INTELLIGENCE / IQ (Questions 81 – 100)';
-    }
-  };
-
-  // Get question palette status
-  const getQuestionStatus = (qId: number) => {
-    const isCurrent = qId === currentQuestion.id;
-    const isMarked = markedForReview[qId];
-    const isAnswered = !!answers[qId];
-
-    if (isCurrent) return 'current';
-    if (isMarked) return 'marked';
-    if (isAnswered) return 'answered';
-    if (visited[qId]) return 'visited';
-    return 'not_visited';
-  };
+  const unansweredCount = clientQuestions.length - answeredCount;
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col select-none">
+    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col">
       
-      {/* =========================================================================
-          TOP EXAMINATION STATUS BAR
-      ========================================================================== */}
-      <div className="bg-slate-950 border-b border-slate-800 px-4 sm:px-6 py-2.5 sticky top-0 z-30 shadow-md">
+      {/* Top Test Header */}
+      <div className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3 sticky top-0 z-30 shadow-xs">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
           
-          {/* Candidate & Test Info */}
           <div className="flex items-center space-x-3">
-            <div className="bg-blue-900/40 border border-blue-500/30 px-3 py-1 rounded-lg">
-              <span className="text-[10px] text-blue-300 uppercase tracking-wider block font-bold">Candidate</span>
-              <span className="text-xs font-semibold text-white truncate max-w-[150px] inline-block">
-                {student.fullName}
-              </span>
-            </div>
-            <div className="hidden sm:block bg-slate-800/80 border border-slate-700 px-3 py-1 rounded-lg">
-              <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-bold">Roll Number</span>
-              <span className="text-xs font-mono font-bold text-amber-400">{student.rollNumber}</span>
-            </div>
-          </div>
-
-          {/* Active Section Indicator */}
-          <div className="hidden lg:flex items-center space-x-2 bg-slate-900 px-4 py-1.5 rounded-xl border border-slate-700/80">
-            {currentQuestion.section === 'ENGLISH' && <BookOpen className="w-4 h-4 text-blue-400" />}
-            {currentQuestion.section === 'MATHEMATICS' && <Calculator className="w-4 h-4 text-emerald-400" />}
-            {currentQuestion.section === 'INTELLIGENCE' && <BrainCircuit className="w-4 h-4 text-purple-400" />}
-            <span className="text-xs font-bold tracking-tight text-white uppercase">
-              {getSectionTitle(currentQuestion.section)}
+            <span className="font-bold text-slate-900 text-sm">
+              STHP MOCK TEST 2027
+            </span>
+            <span className="text-slate-300 hidden sm:inline">|</span>
+            <span className="text-xs text-slate-600 hidden sm:inline">
+              Candidate: <strong className="text-slate-900">{student.fullName}</strong> ({student.district})
             </span>
           </div>
 
-          {/* Timers Cluster */}
-          <div className="flex items-center space-x-3">
-            
-            {/* 60s Question Timer */}
-            {settings.enablePerQuestionTimer && (
-              <div 
-                className={`flex items-center space-x-2 px-3 py-1 rounded-lg border transition-colors ${
-                  questionTimeLeft <= 15
-                    ? 'bg-red-950/70 border-red-500 text-red-200 animate-pulse'
-                    : questionTimeLeft <= 30
-                    ? 'bg-amber-950/60 border-amber-500 text-amber-200'
-                    : 'bg-slate-800 border-slate-700 text-slate-200'
-                }`}
-                title="60-second Question Lock Timer"
-              >
-                <Clock className="w-3.5 h-3.5" />
-                <div className="text-right">
-                  <span className="text-[9px] uppercase tracking-wider block font-bold opacity-80">Question Timer</span>
-                  <span className="text-xs font-mono font-bold">{questionTimeLeft}s</span>
-                </div>
-              </div>
-            )}
-
-            {/* Overall 100m Examination Timer */}
-            <div 
-              className={`flex items-center space-x-2 px-3.5 py-1 rounded-lg border font-mono ${
-                overallTimeLeft <= 300 
-                  ? 'bg-red-950 border-red-500 text-red-100 animate-pulse' 
-                  : 'bg-blue-950/80 border-blue-600/50 text-blue-100'
-              }`}
-              title="Overall Examination Time Remaining"
-            >
-              <Clock className="w-4 h-4 text-amber-400" />
-              <div>
-                <span className="text-[9px] font-sans uppercase tracking-wider block font-bold text-slate-400">
-                  Total Time Left
-                </span>
-                <span className="text-sm font-bold tracking-wider">{formatTime(overallTimeLeft)}</span>
-              </div>
-            </div>
-
-            {/* Finish & Submit Button */}
+          {/* Tools & Timer */}
+          <div className="flex items-center space-x-2 sm:space-x-3">
+            {/* Scientific Calculator Button */}
             <button
-              onClick={() => setShowConfirmSubmit(true)}
-              className="px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg text-xs font-bold shadow-md shadow-emerald-900/30 flex items-center space-x-1.5 transition-all"
+              type="button"
+              onClick={() => setShowCalculator(true)}
+              className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 flex items-center space-x-1.5 transition-colors shadow-2xs"
             >
-              <Send className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Final Submit</span>
-              <span className="sm:hidden">Submit</span>
+              <Calculator className="w-3.5 h-3.5 text-blue-600" />
+              <span>Calculator</span>
             </button>
 
-          </div>
+            {/* Math Formulas Button */}
+            <button
+              type="button"
+              onClick={() => setShowFormulas(true)}
+              className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 flex items-center space-x-1.5 transition-colors shadow-2xs"
+            >
+              <BookOpen className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Math Formulas</span>
+            </button>
 
-        </div>
-      </div>
-
-      {/* =========================================================================
-          SECTION HEADER TABS BAR
-      ========================================================================== */}
-      <div className="bg-slate-900 border-b border-slate-800 px-4 py-2">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-2 text-xs">
-            <span className="text-slate-400 font-medium">Test Sections:</span>
-            <div className="flex space-x-1.5">
-              <span className={`px-2.5 py-1 rounded-md font-bold text-xs flex items-center gap-1 ${
-                currentQuestion.section === 'ENGLISH' 
-                  ? 'bg-blue-600 text-white shadow-sm' 
-                  : 'bg-slate-800 text-slate-400'
-              }`}>
-                <span>1. ENGLISH</span>
-                <span className="text-[10px] opacity-75 font-normal">(40 MCQs)</span>
-              </span>
-
-              <span className={`px-2.5 py-1 rounded-md font-bold text-xs flex items-center gap-1 ${
-                currentQuestion.section === 'MATHEMATICS' 
-                  ? 'bg-emerald-600 text-white shadow-sm' 
-                  : 'bg-slate-800 text-slate-400'
-              }`}>
-                <span>2. MATHEMATICS</span>
-                <span className="text-[10px] opacity-75 font-normal">(40 MCQs)</span>
-              </span>
-
-              <span className={`px-2.5 py-1 rounded-md font-bold text-xs flex items-center gap-1 ${
-                currentQuestion.section === 'INTELLIGENCE' 
-                  ? 'bg-purple-600 text-white shadow-sm' 
-                  : 'bg-slate-800 text-slate-400'
-              }`}>
-                <span>3. INTELLIGENCE / IQ</span>
-                <span className="text-[10px] opacity-75 font-normal">(20 MCQs)</span>
-              </span>
+            {/* 80m Countdown Timer */}
+            <div 
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border text-xs font-mono font-bold ${
+                timeLeft <= 300 
+                  ? 'bg-red-50 border-red-300 text-red-600 animate-pulse' 
+                  : 'bg-blue-50 border-blue-200 text-blue-700'
+              }`}
+              title="Total Test Time Remaining"
+            >
+              <Clock className="w-3.5 h-3.5" />
+              <span>{formatTime(timeLeft)}</span>
             </div>
+
+            {/* Submit Test Button */}
+            <button
+              type="button"
+              onClick={() => setShowConfirmSubmit(true)}
+              className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center space-x-1.5 transition-colors"
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>Submit Test</span>
+            </button>
           </div>
 
-          <div className="text-xs text-slate-400 hidden md:flex items-center space-x-3">
-            <span>Marking Scheme: <strong className="text-white">+1.0</strong> Correct, <strong className="text-white">-{settings.negativeMarking}</strong> Incorrect</span>
-          </div>
         </div>
       </div>
 
-      {/* =========================================================================
-          MAIN TEST WORKSPACE: QUESTION AREA + QUESTION PALETTE
-      ========================================================================== */}
-      <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 py-4 sm:py-6 flex-1 flex flex-col lg:flex-row gap-6">
+      {/* Main Examination Workspace */}
+      <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 py-6 flex-1 flex flex-col lg:flex-row gap-6">
         
-        {/* LEFT COLUMN: ACTIVE QUESTION / PASSAGE CONTAINER */}
-        <div className="flex-1 flex flex-col bg-slate-950 border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
+        {/* Question Area */}
+        <div className="flex-1 flex flex-col bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
           
-          {/* Question Metadata Header */}
-          <div className="px-5 py-3.5 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between flex-wrap gap-2">
-            <div className="flex items-center space-x-2.5">
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-500/20 text-blue-300 border border-blue-400/30">
+          {/* Question Header */}
+          <div className="px-6 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <span className="font-bold text-slate-900 text-sm">
                 Question {currentQuestion.id} of {clientQuestions.length}
               </span>
-              <span className="text-xs text-slate-400 font-medium">
-                Topic: <span className="text-slate-200 font-semibold">{currentQuestion.topic}</span>
+              <span className="text-xs text-slate-500 font-medium px-2.5 py-0.5 rounded bg-slate-200/60">
+                {currentQuestion.section} • {currentQuestion.topic}
               </span>
             </div>
-            
-            <div className="flex items-center space-x-2 text-xs">
-              {markedForReview[currentQuestion.id] && (
-                <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-medium border border-amber-500/30 flex items-center gap-1">
-                  <Bookmark className="w-3 h-3 fill-amber-300" />
-                  Marked for Review
-                </span>
-              )}
-              {answers[currentQuestion.id] && (
-                <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-medium border border-emerald-500/30 flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3" />
-                  Answer Saved
-                </span>
-              )}
-            </div>
+            {answers[currentQuestion.id] && (
+              <span className="text-xs text-emerald-700 font-medium flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                Answer Selected
+              </span>
+            )}
           </div>
 
-          {/* Reading Passage View (if present for Q1-10) */}
+          {/* Reading Comprehension passage if present */}
           {currentQuestion.passage && (
-            <div className="p-5 bg-slate-900/50 border-b border-slate-800 max-h-64 overflow-y-auto">
-              <div className="flex items-center space-x-2 text-blue-400 text-xs font-bold uppercase tracking-wider mb-2">
-                <BookOpen className="w-4 h-4" />
+            <div className="p-5 bg-slate-50/70 border-b border-slate-200 text-xs text-slate-700 leading-relaxed max-h-56 overflow-y-auto">
+              <div className="font-bold text-slate-900 mb-1 flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5 text-blue-600" />
                 <span>{currentQuestion.passageTitle || 'Reading Comprehension Passage'}</span>
               </div>
-              <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-line font-serif">
-                {currentQuestion.passage}
-              </p>
+              <p className="whitespace-pre-line font-serif">{currentQuestion.passage}</p>
             </div>
           )}
 
-          {/* Question Statement */}
-          <div className="p-6 flex-1 flex flex-col justify-between overflow-y-auto">
+          {/* Question Statement & Options */}
+          <div className="p-6 flex-1 flex flex-col justify-between">
             <div>
-              <div className="text-base sm:text-lg font-medium text-slate-100 leading-relaxed whitespace-pre-line mb-6">
+              <div className="text-base font-medium text-slate-900 leading-relaxed whitespace-pre-line mb-6">
                 {currentQuestion.statement}
               </div>
 
-              {/* Options A, B, C, D */}
+              {/* Options */}
               <div className="space-y-3">
                 {(['A', 'B', 'C', 'D'] as const).map((optKey) => {
                   const isSelected = answers[currentQuestion.id] === optKey;
@@ -409,20 +222,18 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
                       key={optKey}
                       type="button"
                       onClick={() => handleSelectOption(optKey)}
-                      className={`w-full text-left p-4 rounded-xl border transition-all flex items-start space-x-3.5 group cursor-pointer ${
+                      className={`w-full text-left p-4 rounded-xl border transition-colors flex items-start space-x-3 ${
                         isSelected
-                          ? 'bg-blue-600/20 border-blue-500 text-white shadow-md shadow-blue-900/20 ring-1 ring-blue-500'
-                          : 'bg-slate-900/80 border-slate-800 text-slate-300 hover:bg-slate-800/90 hover:border-slate-700'
+                          ? 'bg-blue-50/70 border-blue-600 text-blue-900 ring-1 ring-blue-600'
+                          : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                       }`}
                     >
-                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 transition-colors ${
-                        isSelected
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-slate-800 text-slate-400 group-hover:bg-slate-700 group-hover:text-slate-200'
+                      <div className={`w-6 h-6 rounded-md flex items-center justify-center font-bold text-xs shrink-0 ${
+                        isSelected ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'
                       }`}>
                         {optKey}
                       </div>
-                      <div className="text-sm font-normal pt-0.5 flex-1 leading-snug">
+                      <div className="text-sm pt-0.5 flex-1">
                         {currentQuestion.options[optKey]}
                       </div>
                     </button>
@@ -431,40 +242,23 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
               </div>
             </div>
 
-            {/* Bottom Actions Bar */}
-            <div className="pt-8 mt-6 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3">
-              
-              <div className="flex items-center space-x-2">
-                <button
-                  type="button"
-                  onClick={handleClearAnswer}
-                  disabled={!answers[currentQuestion.id]}
-                  className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 disabled:opacity-40 disabled:hover:bg-slate-900 text-slate-400 hover:text-red-300 border border-slate-800 flex items-center space-x-1.5 transition-colors"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Clear Answer</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleToggleReview}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold border flex items-center space-x-1.5 transition-colors ${
-                    markedForReview[currentQuestion.id]
-                      ? 'bg-amber-500/20 border-amber-500 text-amber-300'
-                      : 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-slate-400 hover:text-amber-300'
-                  }`}
-                >
-                  <Bookmark className={`w-3.5 h-3.5 ${markedForReview[currentQuestion.id] ? 'fill-amber-300' : ''}`} />
-                  <span>{markedForReview[currentQuestion.id] ? 'Unmark Review' : 'Mark for Review'}</span>
-                </button>
-              </div>
+            {/* Bottom Navigation Buttons */}
+            <div className="pt-6 mt-6 border-t border-slate-200 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={handleClearAnswer}
+                disabled={!answers[currentQuestion.id]}
+                className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 disabled:opacity-30 transition-colors"
+              >
+                Clear Choice
+              </button>
 
               <div className="flex items-center space-x-3">
                 <button
                   type="button"
                   onClick={handlePrev}
                   disabled={currentIndex === 0}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-200 border border-slate-700 flex items-center space-x-1.5 transition-colors"
+                  className="px-4 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-40 text-xs font-semibold text-slate-700 flex items-center space-x-1.5 transition-colors"
                 >
                   <ChevronLeft className="w-4 h-4" />
                   <span>Previous</span>
@@ -474,238 +268,137 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
                   <button
                     type="button"
                     onClick={handleNext}
-                    className="px-5 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-600/30 flex items-center space-x-1.5 transition-all"
+                    className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs flex items-center space-x-1.5 transition-colors"
                   >
-                    <span>Save & Next</span>
+                    <span>Next</span>
                     <ChevronRight className="w-4 h-4" />
                   </button>
                 ) : (
                   <button
                     type="button"
                     onClick={() => setShowConfirmSubmit(true)}
-                    className="px-5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/30 flex items-center space-x-1.5 transition-all"
+                    className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs flex items-center space-x-1.5 transition-colors"
                   >
-                    <span>Save & Submit</span>
+                    <span>Finish Test</span>
                     <Send className="w-4 h-4" />
                   </button>
                 )}
               </div>
-
             </div>
 
           </div>
 
         </div>
 
-        {/* RIGHT COLUMN: QUESTION NAVIGATION PALETTE */}
-        <div className="w-full lg:w-80 flex flex-col bg-slate-950 border border-slate-800 rounded-2xl shadow-xl p-4 sm:p-5">
-          
-          <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
-            <h4 className="text-sm font-bold text-white tracking-tight flex items-center gap-1.5">
-              <span>Question Palette</span>
-              <span className="text-xs font-mono text-blue-400 font-normal">({clientQuestions.length})</span>
-            </h4>
-            <span className="text-[10px] text-slate-400 uppercase font-semibold">CBT Mode</span>
+        {/* Right Palette: Question Numbers */}
+        <div className="w-full lg:w-72 bg-white border border-slate-200 rounded-xl shadow-xs p-4 flex flex-col">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-3">
+            <span className="text-xs font-bold text-slate-800">Question Navigation</span>
+            <span className="text-[11px] text-slate-500">100 MCQs</span>
           </div>
 
-          {/* Palette Legend */}
-          <div className="grid grid-cols-2 gap-2 text-[11px] mb-4 p-2.5 bg-slate-900 rounded-xl border border-slate-800/80">
-            <div className="flex items-center space-x-2">
-              <span className="w-3.5 h-3.5 rounded bg-emerald-600 flex items-center justify-center text-[9px] font-bold text-white">✓</span>
-              <span className="text-slate-300">Answered ({answeredCount})</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <span className="w-3.5 h-3.5 rounded bg-amber-500 flex items-center justify-center text-[9px] font-bold text-slate-950">★</span>
-              <span className="text-slate-300">Review ({reviewCount})</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <span className="w-3.5 h-3.5 rounded bg-blue-600 flex items-center justify-center text-[9px] font-bold text-white">•</span>
-              <span className="text-slate-300">Current</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <span className="w-3.5 h-3.5 rounded bg-slate-800 border border-slate-700"></span>
-              <span className="text-slate-400">Unanswered ({unattemptedCount})</span>
-            </div>
+          {/* Simple Legend */}
+          <div className="flex items-center justify-between text-[11px] text-slate-600 mb-3 px-1">
+            <span className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded bg-emerald-600"></span>
+              Answered ({answeredCount})
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded bg-slate-200 border border-slate-300"></span>
+              Unanswered ({unansweredCount})
+            </span>
           </div>
 
-          {/* Section Quick Switch Filters */}
-          <div className="flex space-x-1 mb-3">
-            <button
-              onClick={() => setActiveSectionFilter('ENGLISH')}
-              className={`flex-1 py-1 text-[10px] font-bold rounded-lg transition-colors ${
-                activeSectionFilter === 'ENGLISH' 
-                  ? 'bg-blue-600 text-white' 
-                  : 'bg-slate-900 text-slate-400 hover:text-white'
-              }`}
-            >
-              English (1-40)
-            </button>
-            <button
-              onClick={() => setActiveSectionFilter('MATHEMATICS')}
-              className={`flex-1 py-1 text-[10px] font-bold rounded-lg transition-colors ${
-                activeSectionFilter === 'MATHEMATICS' 
-                  ? 'bg-emerald-600 text-white' 
-                  : 'bg-slate-900 text-slate-400 hover:text-white'
-              }`}
-            >
-              Math (41-80)
-            </button>
-            <button
-              onClick={() => setActiveSectionFilter('INTELLIGENCE')}
-              className={`flex-1 py-1 text-[10px] font-bold rounded-lg transition-colors ${
-                activeSectionFilter === 'INTELLIGENCE' 
-                  ? 'bg-purple-600 text-white' 
-                  : 'bg-slate-900 text-slate-400 hover:text-white'
-              }`}
-            >
-              IQ (81-100)
-            </button>
-          </div>
+          {/* Numbers Grid */}
+          <div className="flex-1 max-h-[460px] overflow-y-auto pr-1">
+            <div className="grid grid-cols-5 gap-1.5">
+              {clientQuestions.map((q, idx) => {
+                const isAnswered = !!answers[q.id];
+                const isCurrent = idx === currentIndex;
 
-          {/* 100 Question Grid */}
-          <div className="flex-1 max-h-[380px] overflow-y-auto pr-1">
-            <div className="grid grid-cols-5 sm:grid-cols-6 lg:grid-cols-5 gap-2">
-              {clientQuestions
-                .filter((q) => {
-                  if (activeSectionFilter === 'ENGLISH') return q.section === 'ENGLISH';
-                  if (activeSectionFilter === 'MATHEMATICS') return q.section === 'MATHEMATICS';
-                  if (activeSectionFilter === 'INTELLIGENCE') return q.section === 'INTELLIGENCE';
-                  return true;
-                })
-                .map((q) => {
-                  const status = getQuestionStatus(q.id);
-                  const isCurrent = q.id === currentQuestion.id;
-                  
-                  let colorClasses = 'bg-slate-900 text-slate-400 border border-slate-800 hover:bg-slate-800';
-                  if (status === 'answered') {
-                    colorClasses = 'bg-emerald-600 text-white font-bold border border-emerald-500 shadow-sm';
-                  } else if (status === 'marked') {
-                    colorClasses = 'bg-amber-500 text-slate-950 font-bold border border-amber-400';
-                  }
+                let btnClass = 'bg-slate-100 text-slate-700 hover:bg-slate-200';
+                if (isAnswered) {
+                  btnClass = 'bg-emerald-600 text-white font-semibold';
+                }
+                if (isCurrent) {
+                  btnClass = isAnswered 
+                    ? 'bg-emerald-600 text-white font-bold ring-2 ring-blue-600 ring-offset-1'
+                    : 'bg-blue-600 text-white font-bold ring-2 ring-blue-600 ring-offset-1';
+                }
 
-                  if (isCurrent) {
-                    colorClasses = 'bg-blue-600 text-white font-bold ring-2 ring-white ring-offset-2 ring-offset-slate-950';
-                  }
-
-                  return (
-                    <button
-                      key={q.id}
-                      type="button"
-                      onClick={() => handleJumpToQuestion(q.id - 1)}
-                      className={`h-9 rounded-lg text-xs flex items-center justify-center transition-all ${colorClasses}`}
-                    >
-                      {q.id}
-                    </button>
-                  );
-                })}
+                return (
+                  <button
+                    key={q.id}
+                    type="button"
+                    onClick={() => setCurrentIndex(idx)}
+                    className={`h-8 rounded text-xs flex items-center justify-center transition-all ${btnClass}`}
+                  >
+                    {q.id}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Submission Button in Palette */}
-          <div className="pt-4 mt-3 border-t border-slate-800">
+          <div className="pt-3 mt-3 border-t border-slate-200">
             <button
               type="button"
               onClick={() => setShowConfirmSubmit(true)}
-              className="w-full py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-emerald-900/30 flex items-center justify-center space-x-2 transition-all"
+              className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors"
             >
-              <Send className="w-4 h-4" />
-              <span>Submit Examination</span>
+              Submit Test
             </button>
           </div>
-
         </div>
 
       </div>
 
-      {/* =========================================================================
-          SECTION TRANSITION NOTIFICATION MODAL
-      ========================================================================== */}
-      {showSectionIntro && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-slate-900 border border-blue-600/50 max-w-md w-full rounded-2xl p-6 shadow-2xl text-center">
-            <div className="w-14 h-14 rounded-2xl bg-blue-600/20 text-blue-400 mx-auto flex items-center justify-center mb-4 border border-blue-500/30">
-              <BookOpen className="w-7 h-7" />
-            </div>
-            <h3 className="text-xl font-bold font-serif text-white mb-2">
-              {showSectionIntro}
-            </h3>
-            <p className="text-xs text-slate-300 mb-6 leading-relaxed">
-              You are now entering {showSectionIntro}. Remember that answers cannot be shuffled between sections. Work steadily through the questions.
-            </p>
-            <button
-              type="button"
-              onClick={() => setShowSectionIntro(null)}
-              className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-blue-600/30 transition-all"
-            >
-              Begin This Section
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* =========================================================================
-          FINAL SUBMISSION CONFIRMATION MODAL
-      ========================================================================== */}
+      {/* Confirmation Modal */}
       {showConfirmSubmit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-slate-900 border border-slate-700 max-w-lg w-full rounded-2xl p-6 shadow-2xl">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                <AlertCircle className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-white">Final Test Submission Confirmation</h3>
-                <p className="text-xs text-slate-400">Are you sure you want to finalize and submit your test?</p>
-              </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
+          <div className="bg-white border border-slate-200 max-w-sm w-full rounded-2xl p-6 shadow-xl text-center">
+            <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 mx-auto flex items-center justify-center mb-3">
+              <AlertCircle className="w-6 h-6" />
             </div>
+            <h3 className="text-base font-bold text-slate-800 mb-1">
+              Confirm Submission?
+            </h3>
+            <p className="text-xs text-slate-500 mb-4">
+              You have answered <strong>{answeredCount}</strong> out of <strong>{clientQuestions.length}</strong> questions.
+              {unansweredCount > 0 && ` ${unansweredCount} questions remain unanswered.`}
+            </p>
 
-            {/* Test Summary Stats */}
-            <div className="bg-slate-950 rounded-xl p-4 border border-slate-800 space-y-2.5 my-4">
-              <div className="flex justify-between text-xs py-1 border-b border-slate-900">
-                <span className="text-slate-400">Total Examination Questions:</span>
-                <span className="font-bold text-white">100</span>
-              </div>
-              <div className="flex justify-between text-xs py-1 border-b border-slate-900">
-                <span className="text-emerald-400 font-semibold">Answered Questions:</span>
-                <span className="font-bold text-emerald-400">{answeredCount}</span>
-              </div>
-              <div className="flex justify-between text-xs py-1 border-b border-slate-900">
-                <span className="text-amber-400 font-semibold">Marked for Review:</span>
-                <span className="font-bold text-amber-400">{reviewCount}</span>
-              </div>
-              <div className="flex justify-between text-xs py-1">
-                <span className="text-red-400 font-semibold">Unattempted Questions:</span>
-                <span className="font-bold text-red-400">{unattemptedCount}</span>
-              </div>
-            </div>
-
-            {unattemptedCount > 0 && (
-              <p className="text-xs text-amber-300/90 bg-amber-950/40 border border-amber-600/30 p-3 rounded-lg mb-4">
-                Warning: You still have <strong>{unattemptedCount}</strong> unanswered questions. Unanswered questions will receive 0 marks.
-              </p>
-            )}
-
-            <div className="flex items-center justify-end space-x-3 pt-2">
+            <div className="flex space-x-2 justify-center">
               <button
                 type="button"
                 onClick={() => setShowConfirmSubmit(false)}
-                className="px-4 py-2.5 text-xs font-semibold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-xl transition-colors"
+                className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg"
               >
-                Return to Test
+                Continue Test
               </button>
               <button
                 type="button"
-                onClick={handleFinalSubmitConfirm}
-                className="px-6 py-2.5 text-xs font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 rounded-xl shadow-lg shadow-emerald-900/40 transition-all flex items-center space-x-2"
+                onClick={handleManualSubmit}
+                className="px-5 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-xs"
               >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Confirm & Submit</span>
+                Yes, Submit
               </button>
             </div>
-
           </div>
         </div>
       )}
+
+      {/* Scientific Calculator Modal */}
+      <ScientificCalculator
+        isOpen={showCalculator}
+        onClose={() => setShowCalculator(false)}
+      />
+
+      {/* Mathematics Formulas Modal */}
+      <MathFormulasModal
+        isOpen={showFormulas}
+        onClose={() => setShowFormulas(false)}
+      />
 
     </div>
   );

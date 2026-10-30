@@ -20,12 +20,12 @@ import {
 
 export const DEFAULT_TEST_SETTINGS: TestSettings = {
   testId: 'sthp-2027-mock-1',
-  title: 'STHP 2027 – Computer-Based Entrance Mock Examination',
+  title: 'STHP MOCK TEST 2027',
   totalQuestions: 100,
-  durationMinutes: 100,
-  perQuestionSeconds: 60,
-  enablePerQuestionTimer: true,
-  negativeMarking: 0, // Default 0 as requested; configurable by admin
+  durationMinutes: 80,
+  perQuestionSeconds: 0,
+  enablePerQuestionTimer: false,
+  negativeMarking: 0,
   isPublished: true,
 };
 
