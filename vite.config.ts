@@ -4,11 +4,17 @@ import path from 'path';
 import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
+  // Support deployment under custom repo subpath (e.g. GitHub Pages /sthp-2027-mock-test/)
+  // while keeping root '/' during local dev server execution
+  const isProd = process.env.NODE_ENV === 'production';
+  const basePath = process.env.VITE_BASE_PATH || (isProd ? '/sthp-2027-mock-test/' : '/');
+
   return {
+    base: basePath,
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'),
+        '@': path.resolve(import.meta.dirname || '.', '.'),
       },
     },
     server: {
