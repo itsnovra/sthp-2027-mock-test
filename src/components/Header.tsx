@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, User, Trophy, Bell, LayoutDashboard } from 'lucide-react';
+import { BookOpen, Bell, LayoutDashboard, ExternalLink, GraduationCap } from 'lucide-react';
 import { StudentProfile } from '../types/exam';
 
 interface HeaderProps {
@@ -40,7 +40,7 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </button>
 
-          {/* Clean Navigation (Hidden during exam) */}
+          {/* Clean Navigation: Student Portal, Tests, Study Materials, Announcements */}
           {!examInProgress ? (
             <nav className="flex items-center space-x-1 sm:space-x-2 text-xs font-semibold">
               <button
@@ -67,6 +67,18 @@ export const Header: React.FC<HeaderProps> = ({
                 <span>Tests</span>
               </button>
 
+              <a
+                href="https://drive.google.com/drive/folders/1QDcVbcTEr73MXhQByjKHksIjlHp8V97Z"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 rounded-lg transition-colors flex items-center space-x-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                title="Open STHP Study Materials in Google Drive"
+              >
+                <GraduationCap className="w-3.5 h-3.5 text-amber-600" />
+                <span>Study Materials</span>
+                <ExternalLink className="w-3 h-3 text-slate-400" />
+              </a>
+
               <button
                 onClick={() => setCurrentTab('announcements')}
                 className={`px-3 py-1.5 rounded-lg transition-colors flex items-center space-x-1.5 ${
@@ -77,18 +89,6 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 <Bell className="w-3.5 h-3.5" />
                 <span>Announcements</span>
-              </button>
-
-              <button
-                onClick={() => setCurrentTab('leaderboard')}
-                className={`px-3 py-1.5 rounded-lg transition-colors flex items-center space-x-1.5 ${
-                  currentTab === 'leaderboard'
-                    ? 'bg-blue-50 text-blue-700'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                }`}
-              >
-                <Trophy className="w-3.5 h-3.5" />
-                <span>Leaderboard</span>
               </button>
             </nav>
           ) : (

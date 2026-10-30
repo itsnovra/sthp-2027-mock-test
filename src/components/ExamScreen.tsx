@@ -23,9 +23,13 @@ interface ExamScreenProps {
 
 export const ExamScreen: React.FC<ExamScreenProps> = ({
   student,
+  settings,
   onSubmitExam,
 }) => {
-  const clientQuestions: ClientQuestion[] = useMemo(() => getClientQuestions(), []);
+  const clientQuestions: ClientQuestion[] = useMemo(
+    () => getClientQuestions(settings.testId),
+    [settings.testId]
+  );
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
@@ -114,7 +118,7 @@ export const ExamScreen: React.FC<ExamScreenProps> = ({
           
           <div className="flex items-center space-x-3">
             <span className="font-bold text-slate-900 text-sm">
-              STHP MOCK TEST 2027
+              {settings.title || 'STHP MOCK TEST 01'}
             </span>
             <span className="text-slate-300 hidden sm:inline">|</span>
             <span className="text-xs text-slate-600 hidden sm:inline">

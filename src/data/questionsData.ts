@@ -1674,9 +1674,20 @@ export const QUESTIONS_DATA: Question[] = [
   }
 ];
 
+import { QUESTIONS_MOCK_2 } from './mockTest2Data';
+import { QUESTIONS_MOCK_3 } from './mockTest3Data';
+
+// Helper to get full questions by testId
+export function getQuestionsForTest(testId: string = 'sthp-2027-mock-1'): Question[] {
+  if (testId === 'sthp-2027-mock-2') return QUESTIONS_MOCK_2;
+  if (testId === 'sthp-2027-mock-3') return QUESTIONS_MOCK_3;
+  return QUESTIONS_DATA;
+}
+
 // Helper to provide client-safe question objects (without correctOption and explanation)
-export function getClientQuestions(): import('../types/exam').ClientQuestion[] {
-  return QUESTIONS_DATA.map(q => ({
+export function getClientQuestions(testId: string = 'sthp-2027-mock-1'): import('../types/exam').ClientQuestion[] {
+  const dataset = getQuestionsForTest(testId);
+  return dataset.map(q => ({
     id: q.id,
     section: q.section,
     sectionNumber: q.sectionNumber,

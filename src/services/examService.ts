@@ -20,7 +20,7 @@ import {
 
 export const DEFAULT_TEST_SETTINGS: TestSettings = {
   testId: 'sthp-2027-mock-1',
-  title: 'STHP MOCK TEST 2027',
+  title: 'STHP MOCK TEST 01',
   totalQuestions: 100,
   durationMinutes: 80,
   perQuestionSeconds: 0,

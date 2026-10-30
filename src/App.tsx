@@ -30,6 +30,47 @@ import {
   evaluateStudentExam, 
   submitExamResults 
 } from './services/examService';
+import { getQuestionsForTest } from './data/questionsData';
+
+interface MockTestCardInfo {
+  id: string;
+  title: string;
+  badge: string;
+  description: string;
+  totalQuestions: number;
+  totalMarks: number;
+  durationMinutes: number;
+}
+
+const AVAILABLE_TESTS: MockTestCardInfo[] = [
+  {
+    id: 'sthp-2027-mock-1',
+    title: 'STHP MOCK TEST 01',
+    badge: 'Official CBT Mock',
+    description: 'Sindh Talent Hunt Program entry test computer simulation covering English (40), Mathematics (40), and Intelligence / IQ (20).',
+    totalQuestions: 100,
+    totalMarks: 100,
+    durationMinutes: 80,
+  },
+  {
+    id: 'sthp-2027-mock-2',
+    title: 'STHP MOCK TEST 02',
+    badge: 'Official CBT Mock',
+    description: 'Sindh Talent Hunt Program entry test computer simulation covering English (40), Mathematics (40), and Intelligence / IQ (20). Completely new question set.',
+    totalQuestions: 100,
+    totalMarks: 100,
+    durationMinutes: 80,
+  },
+  {
+    id: 'sthp-2027-mock-3',
+    title: 'STHP MOCK TEST 03',
+    badge: 'Official CBT Mock',
+    description: 'Sindh Talent Hunt Program entry test computer simulation covering English (40), Mathematics (40), and Intelligence / IQ (20). Completely new question set.',
+    totalQuestions: 100,
+    totalMarks: 100,
+    durationMinutes: 80,
+  },
+];
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<'home' | 'tests' | 'announcements' | 'leaderboard'>('home');
@@ -64,15 +105,23 @@ export default function App() {
     ? studentSubmissions.filter(s => s.userId === student.userId || s.studentName.toLowerCase() === student.fullName.toLowerCase())
     : studentSubmissions;
 
-  const testsAttempted = userSubs.length > 0 ? 1 : 0;
+  const testsAttempted = new Set(userSubs.map(s => s.testId)).size;
   const totalSubmissions = userSubs.length;
   const bestScore = userSubs.length > 0 ? Math.max(...userSubs.map(s => s.score)) : 0;
   const averageScore = userSubs.length > 0 
     ? Number((userSubs.reduce((acc, s) => acc + s.score, 0) / userSubs.length).toFixed(1)) 
     : 0;
 
-  // Handle Exam Launch
-  const handleStartExam = () => {
+  // Handle Exam Launch for any specific test
+  const handleStartExam = (testId: string = settings.testId || 'sthp-2027-mock-1') => {
+    const testInfo = AVAILABLE_TESTS.find(t => t.id === testId) || AVAILABLE_TESTS[0];
+    setSettings(prev => ({
+      ...prev,
+      testId: testInfo.id,
+      title: testInfo.title,
+      durationMinutes: 80,
+    }));
+
     if (!student) {
       setShowRegisterModal(true);
     } else {
@@ -85,8 +134,9 @@ export default function App() {
   const handleSubmitExam = async (answers: Record<number, string>, timeTakenSeconds: number) => {
     if (!student) return;
 
-    // Evaluate
-    const evaluation = evaluateStudentExam(answers, timeTakenSeconds, settings.negativeMarking);
+    // Evaluate using authoritative questions for this specific test
+    const testQuestions = getQuestionsForTest(settings.testId);
+    const evaluation = evaluateStudentExam(answers, timeTakenSeconds, settings.negativeMarking, testQuestions);
 
     try {
       // Save to Firebase & Local
@@ -176,58 +226,67 @@ export default function App() {
               setCurrentTab('leaderboard');
             }}
             onRetakeExam={() => {
+              const prevTestId = latestSubmission.testId;
               setLatestSubmission(null);
-              handleStartExam();
+              handleStartExam(prevTestId);
             }}
           />
         ) : currentTab === 'tests' ? (
-          /* VIEW 3: TESTS PAGE (ONE MAIN TEST CARD ONLY) */
-          <div className="max-w-2xl mx-auto w-full px-4 py-12 flex-1 flex flex-col justify-center">
-            <div className="mb-6">
-              <h2 className="text-xl font-bold text-slate-900">Available Tests</h2>
-              <p className="text-xs text-slate-500 mt-0.5">Select and start your official mock examination</p>
+          /* VIEW 3: TESTS PAGE (THREE DISTINCT MOCK TEST CARDS) */
+          <div className="max-w-4xl mx-auto w-full px-4 py-10 flex-1 flex flex-col justify-center">
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Available Tests</h2>
+              <p className="text-sm text-slate-500 mt-1">Select and start your official mock examination (80 Minutes • 100 MCQs)</p>
             </div>
 
-            {/* STHP MOCK TEST 2027 Main Card */}
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-xs p-6 sm:p-8">
-              <div className="flex items-center justify-between mb-4">
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-                  Official CBT Mock
-                </span>
-                <span className="text-xs text-slate-500 font-medium">Part I, II & III</span>
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {AVAILABLE_TESTS.map((test) => (
+                <div 
+                  key={test.id}
+                  className="bg-white border border-slate-200 rounded-2xl shadow-xs p-6 flex flex-col justify-between hover:border-blue-300 transition-colors"
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                        {test.badge}
+                      </span>
+                      <span className="text-[11px] text-slate-500 font-medium">Part I, II & III</span>
+                    </div>
 
-              <h3 className="text-xl font-bold text-slate-900 mb-2">
-                STHP MOCK TEST 2027
-              </h3>
-              
-              <p className="text-xs text-slate-600 mb-6 leading-relaxed">
-                Sindh Talent Hunt Program entry test computer simulation covering English (40), Mathematics (40), and Intelligence / IQ (20).
-              </p>
+                    <h3 className="text-lg font-bold text-slate-900 mb-2">
+                      {test.title}
+                    </h3>
+                    
+                    <p className="text-xs text-slate-600 mb-5 leading-relaxed">
+                      {test.description}
+                    </p>
 
-              {/* Exact 3 Specifications */}
-              <div className="grid grid-cols-3 gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200/80 mb-6 text-center">
-                <div>
-                  <span className="text-[11px] text-slate-500 block">Total Questions</span>
-                  <strong className="text-base font-bold text-slate-800">100</strong>
-                </div>
-                <div>
-                  <span className="text-[11px] text-slate-500 block">Total Marks</span>
-                  <strong className="text-base font-bold text-slate-800">100</strong>
-                </div>
-                <div>
-                  <span className="text-[11px] text-slate-500 block">Total Duration</span>
-                  <strong className="text-base font-bold text-blue-600">80 Minutes</strong>
-                </div>
-              </div>
+                    {/* Exact 3 Specifications */}
+                    <div className="grid grid-cols-3 gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200/80 mb-6 text-center">
+                      <div>
+                        <span className="text-[10px] text-slate-500 block">Questions</span>
+                        <strong className="text-sm font-bold text-slate-800">{test.totalQuestions}</strong>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-500 block">Marks</span>
+                        <strong className="text-sm font-bold text-slate-800">{test.totalMarks}</strong>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-500 block">Duration</span>
+                        <strong className="text-sm font-bold text-blue-600">{test.durationMinutes}m</strong>
+                      </div>
+                    </div>
+                  </div>
 
-              <button
-                onClick={handleStartExam}
-                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold shadow-xs flex items-center justify-center space-x-2 transition-colors"
-              >
-                <span>Start Test</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
+                  <button
+                    onClick={() => handleStartExam(test.id)}
+                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-xs flex items-center justify-center space-x-2 transition-colors cursor-pointer"
+                  >
+                    <span>Start Test</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
         ) : currentTab === 'announcements' ? (

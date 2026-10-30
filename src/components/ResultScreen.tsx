@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Trophy, CheckCircle2, XCircle, HelpCircle, Clock, Calendar, ArrowRight, RotateCcw, BookOpen } from 'lucide-react';
 import { StudentSubmission } from '../types/exam';
-import { QUESTIONS_DATA } from '../data/questionsData';
+import { getQuestionsForTest } from '../data/questionsData';
 
 interface ResultScreenProps {
   submission: StudentSubmission;
@@ -15,6 +15,13 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
   onRetakeExam,
 }) => {
   const [showReview, setShowReview] = useState(false);
+  const questions = getQuestionsForTest(submission.testId);
+
+  const testTitle = submission.testId === 'sthp-2027-mock-2' 
+    ? 'STHP MOCK TEST 02' 
+    : submission.testId === 'sthp-2027-mock-3' 
+    ? 'STHP MOCK TEST 03' 
+    : 'STHP MOCK TEST 01';
 
   const formatDuration = (secs: number) => {
     const mins = Math.floor(secs / 60);
@@ -39,7 +46,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
             <Trophy className="w-7 h-7" />
           </div>
           <h2 className="text-xl font-bold text-slate-900">Test Result</h2>
-          <p className="text-sm text-slate-500 mt-1">STHP Mock Test 2027</p>
+          <p className="text-sm text-slate-500 mt-1">{testTitle}</p>
         </div>
 
         {/* Essential 7 Fields Only */}
@@ -121,7 +128,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
         <div className="mt-8 bg-white border border-slate-200 rounded-2xl shadow-xs p-6 space-y-6">
           <h3 className="font-bold text-slate-900 text-base">Answers & Academic Solutions</h3>
           <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
-            {QUESTIONS_DATA.map((q) => {
+            {questions.map((q) => {
               const studentChoice = submission.answers[q.id];
               const isCorrect = studentChoice === q.correctOption;
               const isSkipped = !studentChoice;
