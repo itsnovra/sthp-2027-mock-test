@@ -1,0 +1,272 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Candidate profile for STHP 2027 Mock Examination",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Unique user ID matching auth UID",
+          "maxLength": 128
+        },
+        "fullName": {
+          "type": "string",
+          "description": "Full name of the candidate",
+          "maxLength": 100
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the student",
+          "maxLength": 150
+        },
+        "rollNumber": {
+          "type": "string",
+          "description": "Generated STHP examination roll number",
+          "maxLength": 30
+        },
+        "district": {
+          "type": "string",
+          "description": "Domicile district of Sindh",
+          "maxLength": 50
+        },
+        "collegeOrSchool": {
+          "type": "string",
+          "description": "Previous intermediate college or higher secondary school",
+          "maxLength": 150
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Profile registration timestamp"
+        }
+      },
+      "required": ["userId", "fullName", "email", "rollNumber", "district"]
+    },
+    "Test": {
+      "title": "Test",
+      "description": "STHP Examination settings and parameters",
+      "type": "object",
+      "properties": {
+        "testId": {
+          "type": "string",
+          "description": "Unique test identifier",
+          "maxLength": 64
+        },
+        "title": {
+          "type": "string",
+          "description": "Official title of the mock test",
+          "maxLength": 150
+        },
+        "totalQuestions": {
+          "type": "number",
+          "description": "Total number of questions (100)"
+        },
+        "durationMinutes": {
+          "type": "number",
+          "description": "Total exam duration in minutes (100)"
+        },
+        "perQuestionSeconds": {
+          "type": "number",
+          "description": "Per question lock countdown in seconds (60)"
+        },
+        "negativeMarking": {
+          "type": "number",
+          "description": "Penalty for incorrect answer (default 0, configurable e.g. 0.25)"
+        },
+        "isPublished": {
+          "type": "boolean",
+          "description": "Whether test is live and accessible to candidates"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last configuration update timestamp"
+        }
+      },
+      "required": ["testId", "title", "totalQuestions", "durationMinutes", "perQuestionSeconds", "negativeMarking", "isPublished"]
+    },
+    "Submission": {
+      "title": "Submission",
+      "description": "Completed examination attempt and evaluated score",
+      "type": "object",
+      "properties": {
+        "submissionId": {
+          "type": "string",
+          "description": "Unique submission identifier",
+          "maxLength": 128
+        },
+        "userId": {
+          "type": "string",
+          "description": "Candidate UID",
+          "maxLength": 128
+        },
+        "testId": {
+          "type": "string",
+          "description": "Test ID attempted",
+          "maxLength": 64
+        },
+        "studentName": {
+          "type": "string",
+          "description": "Candidate full name",
+          "maxLength": 100
+        },
+        "rollNumber": {
+          "type": "string",
+          "description": "STHP roll number",
+          "maxLength": 30
+        },
+        "score": {
+          "type": "number",
+          "description": "Total marks obtained out of 100"
+        },
+        "percentage": {
+          "type": "number",
+          "description": "Percentage score (0 to 100)"
+        },
+        "correctCount": {
+          "type": "number",
+          "description": "Number of correct answers"
+        },
+        "incorrectCount": {
+          "type": "number",
+          "description": "Number of incorrect answers"
+        },
+        "unattemptedCount": {
+          "type": "number",
+          "description": "Number of skipped / unattempted questions"
+        },
+        "englishScore": {
+          "type": "number",
+          "description": "English section score out of 40"
+        },
+        "mathScore": {
+          "type": "number",
+          "description": "Mathematics section score out of 40"
+        },
+        "iqScore": {
+          "type": "number",
+          "description": "Intelligence section score out of 20"
+        },
+        "timeTakenSeconds": {
+          "type": "number",
+          "description": "Total seconds taken to complete the exam"
+        },
+        "accuracyPercentage": {
+          "type": "number",
+          "description": "Accuracy percentage on attempted questions"
+        },
+        "status": {
+          "type": "string",
+          "description": "Submission status",
+          "enum": ["completed"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Submission timestamp"
+        }
+      },
+      "required": ["submissionId", "userId", "testId", "studentName", "rollNumber", "score", "percentage", "correctCount", "incorrectCount", "unattemptedCount", "englishScore", "mathScore", "iqScore", "timeTakenSeconds", "status"]
+    },
+    "LeaderboardEntry": {
+      "title": "LeaderboardEntry",
+      "description": "Public verified score record for STHP global ranking without PII",
+      "type": "object",
+      "properties": {
+        "submissionId": {
+          "type": "string",
+          "description": "Link to candidate submission",
+          "maxLength": 128
+        },
+        "userId": {
+          "type": "string",
+          "description": "Candidate UID",
+          "maxLength": 128
+        },
+        "testId": {
+          "type": "string",
+          "description": "Mock test identifier",
+          "maxLength": 64
+        },
+        "studentName": {
+          "type": "string",
+          "description": "Full student name",
+          "maxLength": 100
+        },
+        "district": {
+          "type": "string",
+          "description": "Candidate district",
+          "maxLength": 50
+        },
+        "score": {
+          "type": "number",
+          "description": "Total marks"
+        },
+        "percentage": {
+          "type": "number",
+          "description": "Percentage"
+        },
+        "accuracyPercentage": {
+          "type": "number",
+          "description": "Accuracy percentage"
+        },
+        "timeTakenSeconds": {
+          "type": "number",
+          "description": "Duration in seconds"
+        },
+        "submittedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Submission timestamp"
+        }
+      },
+      "required": ["submissionId", "userId", "testId", "studentName", "score", "percentage", "accuracyPercentage", "timeTakenSeconds"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "Administrator authority marker",
+      "type": "object",
+      "properties": {
+        "adminId": {
+          "type": "string",
+          "description": "Administrator UID",
+          "maxLength": 128
+        },
+        "email": {
+          "type": "string",
+          "description": "Admin email",
+          "maxLength": 150
+        },
+        "role": {
+          "type": "string",
+          "description": "Admin role",
+          "enum": ["superadmin", "examiner"]
+        }
+      },
+      "required": ["adminId", "email", "role"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Student candidate profile containing registration info"
+    },
+    "/tests/{testId}": {
+      "schema": "Test",
+      "description": "Mock test configuration parameters"
+    },
+    "/submissions/{submissionId}": {
+      "schema": "Submission",
+      "description": "Comprehensive student test attempt and calculated scores"
+    },
+    "/leaderboard/{submissionId}": {
+      "schema": "LeaderboardEntry",
+      "description": "Public sanitized leaderboard entry for global ranking"
+    },
+    "/admins/{adminId}": {
+      "schema": "Admin",
+      "description": "Designated administrator document"
+    }
+  }
+}

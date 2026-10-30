@@ -1,0 +1,6 @@
+{
+  "name": "STHP 2027 Mock Examination Portal",
+  "description": "Realistic computer-based entrance mock examination for Sindh Talent Hunt Program (STHP 2027) Sukkur IBA with 100 MCQs, real-time timer, automated evaluation, and live global leaderboard.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
